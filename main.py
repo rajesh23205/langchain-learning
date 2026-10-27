@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Load environment variables
 load_dotenv()
@@ -17,6 +17,8 @@ class TopicExplanation(BaseModel):
     topic: str
     definition: str
     purpose: str
+    practical_example: str
+    interview_questions: list[str] = Field(min_length=3, max_length=3)
 
 
 # Initialize the LangChain chat model
@@ -27,45 +29,62 @@ llm = ChatOpenAI(
 )
 
 print("Model name:", llm.model_name)
-print("Model kwargs:", llm.model_kwargs)
 print("LangChain model initialized:", model_name)
 
 
 # Create a reusable prompt template
 prompt_template = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful AI tutor."),
+        (
+            "system",
+            "You are a helpful AI tutor. Adapt your explanation to the audience specified in the user's request. "
+            "Use simple language for beginners and appropriate technical depth for advanced learners. "
+            "Explain technical terms when needed and use practical examples when helpful.",
+        ),
         (
             "human",
-            "Explain {topic}. Provide its definition and its main purpose.",
+            "Explain {topic} for {audience}. "
+            "Include a definition, its main purpose, one practical example, "
+            "and exactly three interview questions.",
         ),
     ]
 )
-
-
-# Get input from the user
-topic = input("Enter a topic: ")
-
-
-# Prepare the prompt
-prompt_value = prompt_template.invoke({"topic": topic})
-
-print("\nPrompt type:", type(prompt_value))
-print("Prepared prompt:", prompt_value)
 
 
 # Configure the model to return structured data
 structured_llm = llm.with_structured_output(TopicExplanation)
 
 
-# Send the prepared prompt to the model
-structured_response = structured_llm.invoke(prompt_value)
+# NEW: Connect the prompt and structured model into a chain
+topic_explanation_chain = prompt_template | structured_llm
 
 
-# Inspect the structured response
+# Get input from the user
+topic = input("Enter a topic: ")
+audience = input("Who is the explanation for? ")
+
+
+# Run the complete chain
+structured_response = topic_explanation_chain.invoke(
+    {
+        "topic": topic,
+        "audience": audience,
+    }
+)
+
+
+# Display the structured response
 print("\nResponse type:", type(structured_response))
 print("Response data:", structured_response.model_dump())
 
 print("\nTopic:", structured_response.topic)
-print("Definition:", structured_response.definition)
-print("Purpose:", structured_response.purpose)
+print("\nDefinition:", structured_response.definition)
+print("\nPurpose:", structured_response.purpose)
+print("\nPractical Example:", structured_response.practical_example)
+
+print("\nInterview Questions:")
+for index, question in enumerate(
+    structured_response.interview_questions,
+    start=1,
+):
+    print(f"{index}. {question}")
