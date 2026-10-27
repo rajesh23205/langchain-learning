@@ -3,6 +3,7 @@ import os
 
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -98,6 +99,21 @@ streaming_prompt = ChatPromptTemplate.from_messages(
 
 streaming_chain = streaming_prompt | streaming_llm
 
+question_chain = (
+    RunnablePassthrough.assign(
+        question=RunnableLambda(
+            lambda data: f"Explain {data['topic']} for a {data['audience']}."
+        )
+    )
+    | streaming_chain
+)
+
+uppercase_chain = RunnableLambda(lambda data: data["topic"].upper())
+
+result = uppercase_chain.invoke({"topic": "RAG"})
+
+print("\nRunnableLambda result:", result)
+
 
 def display_explanation(response: TopicExplanation):
     print("\nTopic:", response.topic)
@@ -157,3 +173,24 @@ if streaming_question:
         raise SystemExit(1)
 else:
     print("No streaming question provided.")
+
+
+passthrough_chain = RunnablePassthrough.assign(
+    question=RunnableLambda(
+        lambda data: f"Explain {data['topic']} for a {data['audience']}."
+    )
+)
+
+test_input = {"topic": "RAG", "audience": "Developer"}
+
+result = passthrough_chain.invoke(test_input)
+
+print("\nPassthrough result:", result)
+
+print("\nTesting question_chain:")
+
+for chunk in question_chain.stream({"topic": "RAG", "audience": "Developer"}):
+    if chunk.content:
+        print(chunk.content, end="", flush=True)
+
+print()
