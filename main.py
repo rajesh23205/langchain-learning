@@ -36,6 +36,15 @@ llm = ChatOpenAI(
     max_retries=2,
 )
 
+streaming_llm = ChatOpenAI(
+    model=model_name,
+    api_key=api_key,
+    reasoning_effort="low",
+    timeout=30,
+    max_retries=2,
+    streaming=True,
+)
+
 print("Model name:", llm.model_name)
 print("LangChain model initialized:", model_name)
 
@@ -45,15 +54,19 @@ prompt_template = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful AI tutor. Adapt your explanation to the audience specified in the user's request. "
-            "Use simple language for beginners and appropriate technical depth for advanced learners. "
-            "Explain technical terms when needed and use practical examples when helpful.",
+            (
+                "You are a helpful AI tutor. Adapt your explanation to the audience specified in the user's request. "
+                "Use simple language for beginners and appropriate technical depth for advanced learners. "
+                "Explain technical terms when needed and use practical examples when helpful."
+            ),
         ),
         (
             "human",
-            "Explain {topic} for {audience}. "
-            "Include a definition, its main purpose, one practical example, "
-            "and exactly three interview questions.",
+            (
+                "Explain {topic} for {audience}. "
+                "Include a definition, its main purpose, one practical example, "
+                "and exactly three interview questions."
+            ),
         ),
     ]
 )
@@ -67,6 +80,23 @@ structured_llm = llm.with_structured_output(TopicExplanation)
 topic_explanation_chain = (prompt_template | structured_llm).with_config(
     run_name="topic_explanation_chain"
 )
+
+streaming_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            (
+                "You are a technical AI tutor. Interpret AI and software "
+                "terms in their technical context. In particular, RAG means "
+                "Retrieval-Augmented Generation unless the user clearly "
+                "indicates another meaning. Keep answers under 150 words."
+            ),
+        ),
+        ("human", "{question}"),
+    ]
+)
+
+streaming_chain = streaming_prompt | streaming_llm
 
 
 def display_explanation(response: TopicExplanation):
@@ -109,3 +139,21 @@ except Exception:
 # Display the structured response
 print("\nResponse type:", type(structured_response))
 display_explanation(structured_response)
+
+streaming_question = input("\nEnter a question for streaming: ").strip()
+
+if streaming_question:
+    print("\nStreaming response:")
+
+    try:
+        for chunk in streaming_chain.stream({"question": streaming_question}):
+            if chunk.content:
+                print(chunk.content, end="", flush=True)
+
+        print()
+
+    except Exception:
+        logging.exception("Error generating streaming response")
+        raise SystemExit(1)
+else:
+    print("No streaming question provided.")
