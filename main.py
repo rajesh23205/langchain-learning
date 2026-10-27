@@ -1,9 +1,15 @@
+import logging
 import os
 
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
+
+logging.basicConfig(
+    level=logging.ERROR,
+    format="%(levelname)s: %(message)s",
+)
 
 # Load environment variables
 load_dotenv()
@@ -26,6 +32,8 @@ llm = ChatOpenAI(
     model=model_name,
     api_key=api_key,
     reasoning_effort="low",
+    timeout=30,
+    max_retries=2,
 )
 
 print("Model name:", llm.model_name)
@@ -56,35 +64,48 @@ structured_llm = llm.with_structured_output(TopicExplanation)
 
 
 # NEW: Connect the prompt and structured model into a chain
-topic_explanation_chain = prompt_template | structured_llm
+topic_explanation_chain = (prompt_template | structured_llm).with_config(
+    run_name="topic_explanation_chain"
+)
+
+
+def display_explanation(response: TopicExplanation):
+    print("\nTopic:", response.topic)
+    print("\nDefinition:", response.definition)
+    print("\nPurpose:", response.purpose)
+    print("\nPractical Example:", response.practical_example)
+
+    print("\nInterview Questions:")
+    for index, question in enumerate(
+        response.interview_questions,
+        start=1,
+    ):
+        print(f"{index}. {question}")
 
 
 # Get input from the user
-topic = input("Enter a topic: ")
-audience = input("Who is the explanation for? ")
+topic = input("Enter a topic: ").strip()
+audience = input("Who is the explanation for? ").strip()
+
+# Validate the input
+if not topic or not audience:
+    print("Error: Both topic and audience are required.")
+    raise SystemExit(1)
 
 
 # Run the complete chain
-structured_response = topic_explanation_chain.invoke(
-    {
-        "topic": topic,
-        "audience": audience,
-    }
-)
+try:
+    structured_response = topic_explanation_chain.invoke(
+        {
+            "topic": topic,
+            "audience": audience,
+        }
+    )
+except Exception:
+    logging.exception("Error generating explanation")
+    raise SystemExit(1)
 
 
 # Display the structured response
 print("\nResponse type:", type(structured_response))
-print("Response data:", structured_response.model_dump())
-
-print("\nTopic:", structured_response.topic)
-print("\nDefinition:", structured_response.definition)
-print("\nPurpose:", structured_response.purpose)
-print("\nPractical Example:", structured_response.practical_example)
-
-print("\nInterview Questions:")
-for index, question in enumerate(
-    structured_response.interview_questions,
-    start=1,
-):
-    print(f"{index}. {question}")
+display_explanation(structured_response)
