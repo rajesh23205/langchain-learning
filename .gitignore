@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# PowerShell module analysis cache
+Microsoft/Windows/PowerShell/ModuleAnalysisCache

@@ -1,0 +1,5 @@
+Python is a high-level programming language.
+Python supports functions, classes, and modules.
+Functions allow developers to organize reusable code.
+Classes are used to define objects and their behavior.
+Python is commonly used in automation, data science, and AI development.
