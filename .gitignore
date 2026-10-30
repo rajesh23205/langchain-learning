@@ -221,3 +221,6 @@ __marimo__/
 
 # PowerShell module analysis cache
 Microsoft/Windows/PowerShell/ModuleAnalysisCache
+
+# ChromaDB local database
+chroma_db/
