@@ -1,10 +1,6 @@
 from langchain_openai import ChatOpenAI
 
-from search_documents import (
-    chunk_embeddings,
-    chunks,
-    search_relevant_chunks,
-)
+from vector_store import DISTANCE_THRESHOLD, vector_store
 
 llm = ChatOpenAI(
     model="gpt-5-nano",
@@ -19,34 +15,47 @@ if __name__ == "__main__":
         raise ValueError("Question cannot be empty.")
 
     # Find the most relevant document chunks
-    top_chunks = search_relevant_chunks(question, chunk_embeddings)
+    # Retrieve relevant documents from ChromaDB
+    results = vector_store.similarity_search_with_score(
+        query=question,
+        k=5,
+    )
+
+    # Filter documents using the distance threshold
+    top_chunks = [
+        (document, distance)
+        for document, distance in results
+        if distance <= DISTANCE_THRESHOLD
+    ]
 
     # Stop if no relevant context was found
     if not top_chunks:
         print("I couldn't find an answer in the provided document.")
 
     else:
-        context = "\n\n".join(chunks[index].page_content for score, index in top_chunks)
+        context = "\n\n".join(
+            document.page_content for document, distance in top_chunks
+        )
 
         prompt = f"""
-Answer the question using only the context below.
-If the context does not contain the answer, say you don't know
-based on the provided document. Do not invent information.
+    Answer the question using only the context below.
+    If the context does not contain the answer, say you don't know
+    based on the provided document. Do not invent information.
 
-Context:
-{context}
+    Context:
+    {context}
 
-Question:
-{question}
-"""
+    Question:
+    {question}
+    """
 
         response = llm.invoke(prompt)
 
         print("\nAnswer:", response.content)
         print("\nSources:")
 
-        for score, index in top_chunks:
-            print(f"\nSource: {chunks[index].metadata['source']}")
-            print(f"Chunk index: {index}")
-            print(f"Similarity score: {score:.4f}")
-            print(f"Content: {chunks[index].page_content}")
+        for index, (document, distance) in enumerate(top_chunks, start=1):
+            print(f"\nSource: {document.metadata['source']}")
+            print(f"Result number: {index}")
+            print(f"Distance score: {distance:.4f}")
+            print(f"Content: {document.page_content}")
