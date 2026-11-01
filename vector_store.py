@@ -4,7 +4,7 @@ from langchain_chroma import Chroma
 
 from search_documents import embeddings_model, load_and_split_documents
 
-DISTANCE_THRESHOLD = 0.80
+DISTANCE_THRESHOLD = 0.90
 
 # Connect to the existing ChromaDB collection
 vector_store = Chroma(
